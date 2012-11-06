@@ -4,17 +4,23 @@ import keccak
 triggers = ('MD', 'Squeezed')
 longinp = 'Text'
 
-def process_kat_short(mkhasher, Len, Msg, MD):
+def process_kat_short(mkhasher, Len, Msg, MD = None, Squeezed = None):
     Len = int(Len)
     Msg = Msg.decode('hex')
-    MD = MD.decode('hex')
+    if MD:
+        MD = MD.decode('hex')
+    else:
+        Squeezed = Squeezed.decode('hex')
     if Len % 8:
         # print 'Length %d is not byte-aligned, skipping test vector' % Len
         return
     
     h = mkhasher()
     h.update(Msg[:Len / 8])
-    assert h.digest() == MD
+    if MD:
+        assert h.digest() == MD
+    else:
+        assert Squeezed.startswith(h.digest())
 
 def process_kat_long(mkhasher, Text, Repeat, MD = None, Squeezed = None):
     if MD:
@@ -61,7 +67,3 @@ if __name__ == '__main__':
     run_glob('KeccakKAT/*MsgKAT_256.txt', lambda: keccak.Keccak256())
     run_glob('KeccakKAT/*MsgKAT_384.txt', lambda: keccak.Keccak384())
     run_glob('KeccakKAT/*MsgKAT_512.txt', lambda: keccak.Keccak512())
-    run_glob('KeccakKAT/*MsgKAT_r40c160.txt', lambda: keccak.KeccakHash(40, 160, 320))
-    run_glob('KeccakKAT/*MsgKAT_r144c256.txt', lambda: keccak.KeccakHash(144, 256, 512))
-    run_glob('KeccakKAT/*MsgKAT_r544c256.txt', lambda: keccak.KeccakHash(544, 256, 512))
-    run_glob('KeccakKAT/*MsgKAT_r1344c256.txt', lambda: keccak.KeccakHash(1344, 256, 512))
