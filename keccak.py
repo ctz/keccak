@@ -2,19 +2,6 @@ from math import log
 from operator import xor
 from copy import deepcopy
 
-def multirate_padding(used_bytes, align_bytes):
-    """
-    The Keccak padding function.
-    """
-    padlen = align_bytes - used_bytes
-    if padlen == 0:
-        padlen = align_bytes
-    # note: padding done in 'internal bit ordering', wherein LSB is leftmost
-    if padlen == 1:
-        return [0x81]
-    else:
-        return [0x01] + ([0x00] * (padlen - 2)) + [0x80]
-
 # The Keccak-f round constants.
 RoundConstants = [
   0x0000000000000001,   0x0000000000008082,   0x800000000000808A,   0x8000000080008000,
@@ -56,6 +43,19 @@ def ror(value, right, bits):
     bot = (value & Masks[right]) << (bits - right)
     return bot | top
 
+def multirate_padding(used_bytes, align_bytes):
+    """
+    The Keccak padding function.
+    """
+    padlen = align_bytes - used_bytes
+    if padlen == 0:
+        padlen = align_bytes
+    # note: padding done in 'internal bit ordering', wherein LSB is leftmost
+    if padlen == 1:
+        return [0x81]
+    else:
+        return [0x01] + ([0x00] * (padlen - 2)) + [0x80]
+
 def keccak_f(state):
     """
     This is Keccak-f permutation.  It operates on and
@@ -63,26 +63,27 @@ def keccak_f(state):
     """
     def round(A, RC):
         W, H = state.W, state.H
+        rangeW, rangeH = state.rangeW, state.rangeH
         lanew = state.lanew
         zero = state.zero
     
         # theta
-        C = [reduce(xor, A[x]) for x in xrange(W)]
+        C = [reduce(xor, A[x]) for x in rangeW]
         D = [0] * W
-        for x in xrange(W):
+        for x in rangeW:
             D[x] = C[(x - 1) % W] ^ rol(C[(x + 1) % W], 1, lanew)
-            for y in xrange(H):
+            for y in rangeH:
                 A[x][y] ^= D[x]
         
         # rho and pi
         B = zero()
-        for x in xrange(W):
-            for y in xrange(H):
+        for x in rangeW:
+            for y in rangeH:
                 B[y % W][(2 * x + 3 * y) % H] = rol(A[x][y], RotationConstants[y][x], lanew)
                 
         # chi
-        for x in xrange(W):
-            for y in xrange(H):
+        for x in rangeW:
+            for y in rangeH:
                 A[x][y] = B[x][y] ^ ((~ B[(x + 1) % W][y]) & B[(x + 2) % W][y])
         
         # iota
@@ -103,12 +104,15 @@ class KeccakState(object):
     W = 5
     H = 5
     
+    rangeW = range(W)
+    rangeH = range(H)
+    
     @staticmethod
     def zero():
         """
         Returns an zero state table.
         """
-        return [[0] * KeccakState.W for x in range(KeccakState.H)]
+        return [[0] * KeccakState.W for x in KeccakState.rangeH]
     
     @staticmethod
     def format(st):
@@ -117,9 +121,9 @@ class KeccakState(object):
         """
         rows = []
         def fmt(x): return '%016x' % x
-        for y in range(KeccakState.H):
+        for y in KeccakState.rangeH:
             row = []
-            for x in range(KeccakState.W):
+            for x in rangeW:
                 row.append(fmt(st[x][y]))
             rows.append(' '.join(row))
         return '\n'.join(rows)
@@ -185,8 +189,8 @@ class KeccakState(object):
         bb += [0] * bits2bytes(self.b - self.bitrate)
         i = 0
         
-        for y in range(self.H):
-            for x in range(self.W):
+        for y in self.rangeH:
+            for x in self.rangeW:
                 self.s[x][y] ^= KeccakState.bytes2lane(bb[i:i + 8])
                 i += 8
     
@@ -202,8 +206,8 @@ class KeccakState(object):
         """
         out = [0] * bits2bytes(self.b)
         i = 0
-        for y in range(self.H):
-            for x in range(self.W):
+        for y in self.rangeH:
+            for x in self.rangeW:
                     v = KeccakState.lane2bytes(self.s[x][y], self.lanew)
                     out[i:i+8] = v
                     i += 8
@@ -215,8 +219,8 @@ class KeccakState(object):
         to be the correct length.
         """
         i = 0
-        for y in range(self.H):
-            for x in range(self.W):
+        for y in self.rangeH:
+            for x in self.rangeW:
                 self.s[x][y] = KeccakState.bytes2lane(bb[i:i+8])
                 i += 8
 
@@ -273,12 +277,6 @@ class KeccakHash(object):
         assert output_bits % 8 == 0
         self.digest_size = bits2bytes(output_bits)
         self.block_size = bits2bytes(bitrate_bits)
-        
-        # if we must refinalise
-        self.dirty = False
-        
-        # the digest output we last made
-        self.last_digest = None
     
     def __repr__(self):
         inf = (self.sponge.state.bitrate,
@@ -291,21 +289,22 @@ class KeccakHash(object):
     
     def update(self, s):
         self.sponge.absorb(s)
-        self.dirty = True
     
     def digest(self):
-        if self.last_digest is None or self.dirty:
-            finalised = self.sponge.copy()
-            finalised.absorb_final()
-            self.last_digest = finalised.squeeze(self.digest_size)
-            self.dirty = False
-        return KeccakState.bytes2str(self.last_digest)
+        finalised = self.sponge.copy()
+        finalised.absorb_final()
+        digest = finalised.squeeze(self.digest_size)
+        return KeccakState.bytes2str(digest)
     
     def hexdigest(self):
         return self.digest().encode('hex')
     
     @staticmethod
     def preset(bitrate_bits, capacity_bits, output_bits):
+        """
+        Returns a factory function for the given bitrate, sponge capacity and output length.
+        The function accepts an optional initial input, ala hashlib.
+        """
         def create(initial_input = None):
             h = KeccakHash(bitrate_bits, capacity_bits, output_bits)
             if initial_input is not None:
