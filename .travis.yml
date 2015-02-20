@@ -4,5 +4,6 @@ python:
  - "2.7"
 script:
  - unzip KeccakKAT.zip
+ - rm KeccakKAT/ExtremelyLongMsg*
  - python tests.py
  - python kats.py
