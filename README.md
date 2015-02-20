@@ -1,5 +1,7 @@
-keccak
+Keccak
 ======
+
+[![Build Status](https://travis-ci.org/ctz/keccak.svg)](https://travis-ci.org/ctz/keccak)
 
 This is a pure python keccak implementation that I wrote for educational purposes.
 It is not optimised, nor especially well documented.  But it does pass all the
