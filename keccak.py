@@ -184,7 +184,6 @@ class KeccakState(object):
         Mixes in the given bitrate-length string to the state.
         """
         assert len(bb) == self.bitrate_bytes
-        bitrate_lanes = self.bitrate / self.lanew
         
         bb += [0] * bits2bytes(self.b - self.bitrate)
         i = 0
