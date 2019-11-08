@@ -11,5 +11,10 @@ It has a hashlib-compatible interface at the top-level.
 
 Important!
 ----------
-While Keccak eventually became SHA3, it underwent some incompatible changes in the process.
-Therefore, this library *is not* compatible with SHA3.
+
+
+~While Keccak eventually became SHA3, it underwent some incompatible changes in the process.
+Therefore, this library is not compatible with SHA3.~
+
+This is no longer correct, the library now contains SHA3 primitives as well, using the SHA 
+padding instead of Keccak.
