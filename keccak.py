@@ -1,6 +1,8 @@
 from math import log
 from operator import xor
 from copy import deepcopy
+from functools import reduce
+from binascii import hexlify
 
 # The Keccak-f round constants.
 RoundConstants = [
@@ -23,7 +25,7 @@ RotationConstants = [
 Masks = [(1 << i) - 1 for i in range(65)]
 
 def bits2bytes(x):
-    return (int(x) + 7) / 8
+    return (int(x) + 7) // 8
 
 def rol(value, left, bits):
     """
@@ -92,7 +94,7 @@ def keccak_f(state):
     l = int(log(state.lanew, 2))
     nr = 12 + 2 * l
     
-    for ir in xrange(nr):
+    for ir in range(nr):
         round(state.s, RoundConstants[ir])
 
 class KeccakState(object):
@@ -104,8 +106,8 @@ class KeccakState(object):
     W = 5
     H = 5
     
-    rangeW = range(W)
-    rangeH = range(H)
+    rangeW = tuple(range(W))
+    rangeH = tuple(range(H))
     
     @staticmethod
     def zero():
@@ -150,18 +152,18 @@ class KeccakState(object):
         return r
     
     @staticmethod
-    def bytes2str(bb):
+    def ilist2bytes(bb):
         """
-        Converts a sequence of byte values to a string.
+        Converts a sequence of byte values to a bytestring.
         """
-        return ''.join(map(chr, bb))
+        return b''.join(map(chr, bb)) if isinstance(chr(0), bytes) else bytes(bb)
     
     @staticmethod
-    def str2bytes(ss):
+    def bytes2ilist(ss):
         """
-        Converts a string to a sequence of byte values.
+        Converts a string or bytestring to a sequence of byte values.
         """
-        return map(ord, ss)
+        return map(ord, ss) if isinstance(ss, str) else list(ss)
 
     def __init__(self, bitrate, b):
         self.bitrate = bitrate
@@ -239,7 +241,7 @@ class KeccakSponge(object):
         self.permfn(self.state)
     
     def absorb(self, s):
-        self.buffer += KeccakState.str2bytes(s)
+        self.buffer += KeccakState.bytes2ilist(s)
         
         while len(self.buffer) >= self.state.bitrate_bytes:
             self.absorb_block(self.buffer[:self.state.bitrate_bytes])
@@ -293,10 +295,10 @@ class KeccakHash(object):
         finalised = self.sponge.copy()
         finalised.absorb_final()
         digest = finalised.squeeze(self.digest_size)
-        return KeccakState.bytes2str(digest)
+        return KeccakState.ilist2bytes(digest)
     
     def hexdigest(self):
-        return self.digest().encode('hex')
+        return hexlify(self.digest())
     
     @staticmethod
     def preset(bitrate_bits, capacity_bits, output_bits):
