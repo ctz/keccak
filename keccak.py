@@ -94,6 +94,19 @@ def sha_padding(used_bytes, align_bytes):
         return [0x06] + ([0x00] * (padlen - 2)) + [0x80]
 
 
+def shake_padding(used_bytes, align_bytes):
+    """
+    The SHAKE padding function
+    """
+    padlen = align_bytes - (used_bytes % align_bytes)
+    if padlen == 1:
+        return [0x9F]
+    elif padlen == 2:
+        return [0x1F, 0x80]
+    else:
+        return [0x1F] + ([0x00] * (padlen - 2)) + [0x80]
+
+
 def keccak_f(state):
     """
     This is Keccak-f permutation.  It operates on and
@@ -366,7 +379,7 @@ class KeccakHash:
 
 class SHA3Hash:
     """
-    The Keccak hash function, with a hashlib-compatible interface.
+    The SHA3 hash function, with a hashlib-compatible interface.
     """
 
     def __init__(self, bitrate_bits, capacity_bits, output_bits):
@@ -420,6 +433,37 @@ class SHA3Hash:
         return create
 
 
+class SHAKE:
+    """
+    The SHAKE Hash-XOF function.
+    """
+
+    def __init__(self, bitrate_bits, capacity_bits):
+        # our in-absorption sponge. this is never given padding
+        assert bitrate_bits + capacity_bits in (25, 50, 100, 200, 400, 800, 1600)
+        self.sponge = KeccakSponge(
+            bitrate_bits, bitrate_bits + capacity_bits, shake_padding, keccak_f
+        )
+
+    @staticmethod
+    def preset(bitrate_bits, capacity_bits):
+        def create(initial_input=None):
+            h = SHAKE(bitrate_bits, capacity_bits)
+            if initial_input is not None:
+                h.update(initial_input)
+            return h
+
+        return create
+
+    def update(self, s):
+        self.sponge.absorb(s)
+
+    def squeeze(self, len):
+        finalised = self.sponge.copy()
+        finalised.absorb_final()
+        return KeccakState.ilist2bytes(finalised.squeeze(len))
+
+
 # Keccak parameter presets
 Keccak224 = KeccakHash.preset(1152, 448, 224)
 Keccak256 = KeccakHash.preset(1088, 512, 256)
@@ -431,3 +475,7 @@ SHA3_224 = SHA3Hash.preset(1152, 448, 224)
 SHA3_256 = SHA3Hash.preset(1088, 512, 256)
 SHA3_384 = SHA3Hash.preset(832, 768, 384)
 SHA3_512 = SHA3Hash.preset(576, 1024, 512)
+
+# SHAKE parameter presets
+SHAKE_128 = SHAKE.preset(1344, 256)
+SHAKE_256 = SHAKE.preset(1088, 512)
