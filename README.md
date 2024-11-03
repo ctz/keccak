@@ -9,12 +9,14 @@ test vectors, and is moderately readable.
 
 It has a hashlib-compatible interface at the top-level.
 
-Important!
-----------
+Both the original Keccak, SHA-3 and SHAKE variants are supported.
 
-
-~While Keccak eventually became SHA3, it underwent some incompatible changes in the process.
-Therefore, this library is not compatible with SHA3.~
-
-This is no longer correct, the library now contains SHA3 primitives as well, using the SHA 
-padding instead of Keccak.
+```python
+>>> import keccak
+>>> keccak.Keccak256(b"hello").hexdigest()
+'1c8aff950685c2ed4bc3174f3472287b56d9517b9c948127319a09a7a36deac8'
+>>> keccak.SHA3_256(b"world").hexdigest()
+'420baf620e3fcd9b3715b42b92506e9304d56e02d3a103499a3a292560cb66b2'
+>>> keccak.SHAKE_128(b"goodbye").squeeze(12).hex()
+'e99444ef1f48fd1d9709479f'
+```
