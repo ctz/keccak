@@ -20,3 +20,7 @@ Both the original Keccak, SHA-3 and SHAKE variants are supported.
 >>> keccak.SHAKE_128(b"goodbye").squeeze(12).hex()
 'e99444ef1f48fd1d9709479f'
 ```
+
+License
+-------
+Apache 2.0
