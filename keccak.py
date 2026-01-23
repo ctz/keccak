@@ -94,20 +94,20 @@ def sha_padding(used_bytes, align_bytes):
         return [0x06] + ([0x00] * (padlen - 2)) + [0x80]
 
 
-def shake_padding(used_bytes, align_bytes):
+def shake_padding(used_bytes, align_bytes, domain_separator=0x1F):
     """
-    The SHAKE padding function
+    The (Turbo)SHAKE padding function
     """
     padlen = align_bytes - (used_bytes % align_bytes)
     if padlen == 1:
-        return [0x9F]
+        return [domain_separator | 0x80]
     elif padlen == 2:
-        return [0x1F, 0x80]
+        return [domain_separator, 0x80]
     else:
-        return [0x1F] + ([0x00] * (padlen - 2)) + [0x80]
+        return [domain_separator] + ([0x00] * (padlen - 2)) + [0x80]
 
 
-def keccak_f(state):
+def keccak_f(state, rounds=None):
     """
     This is Keccak-f permutation.  It operates on and
     mutates the passed-in KeccakState.  It returns nothing.
@@ -144,8 +144,10 @@ def keccak_f(state):
         a[0][0] ^= rc
 
     nr = 12 + 2 * int(log(state.lanew, 2))
+    if rounds == None:
+        rounds = nr
 
-    for ir in range(nr):
+    for ir in range(nr-rounds,nr):
         keccak_round(state.s, RoundConstants[ir])
 
 
@@ -464,6 +466,40 @@ class SHAKE:
         return KeccakState.ilist2bytes(finalised.squeeze(len))
 
 
+class TurboSHAKE:
+    """
+    The TurboSHAKE Hash-XOF function (with reduced-round Keccak-f).
+    """
+
+    def __init__(self, bitrate_bits, capacity_bits, domain_sep):
+        # our in-absorption sponge. this is never given padding
+        assert bitrate_bits + capacity_bits in (25, 50, 100, 200, 400, 800, 1600)
+        assert domain_sep in range(0x80)
+        self.sponge = KeccakSponge(
+            bitrate_bits, bitrate_bits + capacity_bits,
+            lambda a, b: shake_padding(a, b, domain_separator=domain_sep),
+            lambda s: keccak_f(s, rounds=12)
+        )
+
+    @staticmethod
+    def preset(bitrate_bits, capacity_bits, domain_sep=0x1F):
+        def create(initial_input=None):
+            h = TurboSHAKE(bitrate_bits, capacity_bits, domain_sep)
+            if initial_input is not None:
+                h.update(initial_input)
+            return h
+
+        return create
+
+    def update(self, s):
+        self.sponge.absorb(s)
+
+    def squeeze(self, len):
+        finalised = self.sponge.copy()
+        finalised.absorb_final()
+        return KeccakState.ilist2bytes(finalised.squeeze(len))
+
+
 # Keccak parameter presets
 Keccak224 = KeccakHash.preset(1152, 448, 224)
 Keccak256 = KeccakHash.preset(1088, 512, 256)
@@ -479,3 +515,10 @@ SHA3_512 = SHA3Hash.preset(576, 1024, 512)
 # SHAKE parameter presets
 SHAKE_128 = SHAKE.preset(1344, 256)
 SHAKE_256 = SHAKE.preset(1088, 512)
+
+# TurboSHAKE parameter presets
+TurboSHAKE_128 = TurboSHAKE.preset(1344, 256)
+TurboSHAKE_256 = TurboSHAKE.preset(1088, 512)
+
+# KangarooTwelve not yet implemented
+

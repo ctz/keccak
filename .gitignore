@@ -1,5 +1,8 @@
 *.py[co]
 
+SHA3KAT/*.rsp
+KeccakKAT/*
+
 # Packages
 *.egg
 *.egg-info
