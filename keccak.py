@@ -107,7 +107,7 @@ def shake_padding(used_bytes, align_bytes):
         return [0x1F] + ([0x00] * (padlen - 2)) + [0x80]
 
 
-def keccak_f(state):
+def keccak_f(state, rounds=None):
     """
     This is Keccak-f permutation.  It operates on and
     mutates the passed-in KeccakState.  It returns nothing.
@@ -144,8 +144,10 @@ def keccak_f(state):
         a[0][0] ^= rc
 
     nr = 12 + 2 * int(log(state.lanew, 2))
+    if rounds == None:
+        rounds = nr
 
-    for ir in range(nr):
+    for ir in range(nr-rounds,nr):
         keccak_round(state.s, RoundConstants[ir])
 
 
