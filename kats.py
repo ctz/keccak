@@ -44,10 +44,16 @@ def process_kat_long(mkhasher, Text, Repeat, MD=None, Squeezed=None):
         assert Squeezed.startswith(h.digest())
 
 
-def process_kat_shake(mkhasher, Len, Msg, Output):
+def process_kat_shake(mkhasher, Len, Msg, Output, Outputlen=None, COUNT=None):
+    if not Len:
+        Len=len(bytes.fromhex(Msg)) * 8
+
     Len = int(Len) // 8
     Msg = bytes.fromhex(Msg)[:Len]
     Output = bytes.fromhex(Output)
+
+    if Outputlen:
+        assert (int(Outputlen) // 8) == len(Output)
 
     h = mkhasher()
     h.update(Msg)
@@ -65,6 +71,7 @@ def process_katfile(fn, mkhasher):
 
         if lhs in triggers:
             if lhs == "Output":
+                if "Len" not in data: data["Len"] = 0
                 process_kat_shake(mkhasher, **data)
             elif longinp in data:
                 process_kat_long(mkhasher, **data)
@@ -75,7 +82,7 @@ def process_katfile(fn, mkhasher):
 
 def run_glob(pat, mkhasher):
     for g in glob.glob(pat):
-        if fnmatch.fnmatch(g, "*ExtremelyLong*"):
+        if fnmatch.fnmatch(g, "*ExtremelyLong*") or fnmatch.fnmatch(g, "*Monte*"):
             print("Ignoring:", g)
         else:
             print("Processing:", g)
@@ -92,5 +99,5 @@ if __name__ == "__main__":
     run_glob("SHA3KAT/SHA3_256*Msg.rsp", lambda: keccak.SHA3_256())
     run_glob("SHA3KAT/SHA3_384*Msg.rsp", lambda: keccak.SHA3_384())
     run_glob("SHA3KAT/SHA3_512*Msg.rsp", lambda: keccak.SHA3_512())
-    run_glob("SHA3KAT/SHAKE128*Msg.rsp", lambda: keccak.SHAKE_128())
-    run_glob("SHA3KAT/SHAKE256*Msg.rsp", lambda: keccak.SHAKE_256())
+    run_glob("SHA3KAT/SHAKE128*.rsp", lambda: keccak.SHAKE_128())
+    run_glob("SHA3KAT/SHAKE256*.rsp", lambda: keccak.SHAKE_256())
