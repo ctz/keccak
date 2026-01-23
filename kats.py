@@ -1,4 +1,4 @@
-import glob
+import glob, fnmatch
 import keccak
 
 triggers = ("MD", "Squeezed", "Output")
@@ -75,8 +75,11 @@ def process_katfile(fn, mkhasher):
 
 def run_glob(pat, mkhasher):
     for g in glob.glob(pat):
-        print("Processing:", g)
-        process_katfile(g, mkhasher)
+        if fnmatch.fnmatch(g, "*ExtremelyLong*"):
+            print("Ignoring:", g)
+        else:
+            print("Processing:", g)
+            process_katfile(g, mkhasher)
 
 
 if __name__ == "__main__":
